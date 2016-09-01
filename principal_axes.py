@@ -140,3 +140,43 @@ cmd.extend("principalaxes",principalaxes)
 cmd.auto_arg[0]["principalaxes"] = [cmd.object_sc,"selection",", "]
 
 
+try:
+    # If the ellipsoid script is installed, add more functions
+    import ellipsoid
+
+
+    def principalellipsoid(selection, name="ellipsoid", scale_factor=1,
+            state=1, color="red red green green blue blue",segments=40,**kwargs):
+        """Fit an ellipsoid to the selection based on the principal axes
+        """
+
+        scale_factor = float(scale_factor)
+
+        xyz = []
+        cmd.iterate_state(state,selection,"xyz.append( (x,y,z) )", space={'xyz':xyz} )
+
+        #create coordinates array
+        coord = numpy.array(xyz, float)
+
+        axis1,axis2,axis3,center = computeprincipalaxes(coord)
+
+
+        a = numpy.linalg.norm(axis1)
+        b = numpy.linalg.norm(axis2)
+        c = numpy.linalg.norm(axis3)
+
+        # Convert axes into transformation matrix
+        M = numpy.vstack((axis1/a,axis2/b,axis3/c,center)).transpose()
+        M = numpy.vstack((M,numpy.array([[0,0,0,1]])))
+        # Convert to row-major array
+        transf = M.reshape(-1).tolist()
+
+        ellipsoid.ellipsoid(name,0,0,0,
+                a*scale_factor, b*scale_factor, c*scale_factor,
+                color=color, segs=segments, transformation=transf, **kwargs)
+
+    cmd.extend("principalellipsoid",principalellipsoid)
+    cmd.auto_arg[0]["principalellipsoid"] = [cmd.object_sc,"selection",", "]
+
+except:
+    pass
