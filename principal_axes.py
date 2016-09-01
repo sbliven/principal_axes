@@ -1,10 +1,9 @@
 #! /usr/bin/env python
 
 # Author: Pierre Poulain
-# Contributors: Justine Guegan, Edithe Selwa
+# Contributors: Justine Guegan, Edithe Selwa, Spencer Bliven
  
 # This Python script computes principal axes from a PDB file
-# Itproduces a .pml script for a nice rendering with PyMOL
 
 #==========================================================================
 # import required modules
@@ -12,171 +11,132 @@
 import sys
 import os.path
 import numpy
-
-#==========================================================================
-# define data or hard-coded parameters
-#==========================================================================
-# scale factor to enhance the length of axis in Pymol
-scale_factor = 20
-
-#==========================================================================
-# define functions
-#==========================================================================
-
-#==========================================================================
-def read_pdb_xyz(pdb_name):
-    """
-reads atomic coordinates of C-alpha atoms in a .pdb file
-returns:
-[[x1 y1 z1]
- [x2 y2 z2]
- [.. .. ..] 
- [xn yn zn]]
-    """
-    xyz = []
-    pdb_file = open(pdb_name, 'r')
-    for line in pdb_file:
-        if line.startswith("ATOM"):
-            # extract x, y, z coordinates for carbon alpha atoms
-            x = float(line[30:38].strip())
-            y = float(line[38:46].strip())
-            z = float(line[46:54].strip())
-            if line[12:16].strip() == "CA":
-				xyz.append([x, y, z])
-    pdb_file.close()
-    return xyz
-
-#==========================================================================
-# start program
-#==========================================================================
-
-# check if argument is there
-if len(sys.argv) == 2:
-	pdb_name = sys.argv[1]
-else:
-    message = """
-ERROR: missing pdb filename as argument
-usage: %s file.pdb""" %(sys.argv[0])
-    sys.exit(message)
-
-# check if argument is an existing file
-if not os.path.exists(pdb_name):
-    sys.exit("ERROR: file %s does not seem to exist" %(pdb_name))
-
+from pymol import cmd, stored
+from pymol.cgo import *
 
 #--------------------------------------------------------------------------
 # compute principal axes
 #--------------------------------------------------------------------------
-# read pdb
-xyz = read_pdb_xyz(pdb_name)
-print "%d CA atomes found if %s" %(len(xyz), pdb_name)
+def computeprincipalaxes(coord):
+    """
+    xyz: numpy nx3 array giving the input points
+    returns: axis1, axis2, axis3, and center point
+    """
 
-#create coordinates array
-coord = numpy.array(xyz, float)
+    # compute geometric center
+    center = numpy.mean(coord, 0)
+    #print "geometric center coordinates:\n", center
 
-# compute geometric center
-center = numpy.mean(coord, 0)
-print "Coordinates of the geometric center:\n", center
+    # center with geometric center
+    coord = coord - center
 
-# center with geometric center
-coord = coord - center
+    # compute principal axis matrix
+    inertia = numpy.dot(coord.transpose(), coord)
+    e_values, e_vectors = numpy.linalg.eig(inertia)
+    # warning eigen values are not necessary ordered!
+    # http://docs.scipy.org/doc/numpy/reference/generated/numpy.linalg.eig.html
 
-# compute principal axis matrix
-inertia = numpy.dot(coord.transpose(), coord)
-e_values, e_vectors = numpy.linalg.eig(inertia)
-# warning eigen values are not necessary ordered!
-# http://docs.scipy.org/doc/numpy/reference/generated/numpy.linalg.eig.html
-print "(Unordered) eigen values:"
-print e_values
-print "(Unordered) eigen vectors:"
-print e_vectors
+    #--------------------------------------------------------------------------
+    # order eigen values (and eigen vectors)
+    #
+    # axis1 is the principal axis with the biggest eigen value (eval1)
+    # axis2 is the principal axis with the second biggest eigen value (eval2)
+    # axis3 is the principal axis with the smallest eigen value (eval3)
+    #--------------------------------------------------------------------------
+    for i in xrange(len(e_values)):
+            # find biggest eigen value
+            if e_values[i] == max(e_values):
+                    eval1 = e_values[i]
+                    axis1 = e_vectors[:,i]
+            # find smallest eigen value
+            elif e_values[i] == min(e_values):
+                    eval3 = e_values[i]
+                    axis3 = e_vectors[:,i]
+            # middle eigen value
+            else:
+                    eval2 = e_values[i]
+                    axis2 = e_vectors[:,i]
 
-#--------------------------------------------------------------------------
-# order eigen values (and eigen vectors)
-#
-# axis1 is the principal axis with the biggest eigen value (eval1)
-# axis2 is the principal axis with the second biggest eigen value (eval2)
-# axis3 is the principal axis with the smallest eigen value (eval3)
-#--------------------------------------------------------------------------
-for i in xrange(len(e_values)):
-	# find biggest eigen value
-	if e_values[i] == max(e_values):
-		eval1 = e_values[i]
-		axis1 = e_vectors[:,i]
-	# find smallest eigen value
-	elif e_values[i] == min(e_values):
-		eval3 = e_values[i]
-		axis3 = e_vectors[:,i]
-	# middle eigen value
-	else:
-		eval2 = e_values[i]
-		axis2 = e_vectors[:,i]
+    # Normalize axes to the bounds of the coordinates
+    proj1 = numpy.dot(coord,axis1)
+    range1 = numpy.max(numpy.abs(proj1))
+    proj2 = numpy.dot(coord,axis2)
+    range2 = numpy.max(numpy.abs(proj2))
+    proj3 = numpy.dot(coord,axis2)
+    range3 = numpy.max(numpy.abs(proj3))
+    return axis1*range1,axis2*range2,axis3*range3,center
 
-print "Inertia axis are now ordered !"
+def principalaxes(selection,name="axes",scale_factor=1,state=1,radius=.5,hlength=-1,hradius=-1):
+    """Display the principal axes of the selection as arrows
+    """
 
-#--------------------------------------------------------------------------
-# center axes to the geometric center of the molecule
-# and rescale them by order of eigen values
-#--------------------------------------------------------------------------
-# the large vector is the first principal axis
-point1 = 3 * scale_factor * axis1 + center
-# the medium vector is the second principal axis
-point2 = 2 * scale_factor * axis2 + center
-# the small vector is the third principal axis
-point3 = 1 * scale_factor * axis3 + center
+    xyz = []
+    cmd.iterate_state(state,selection,"xyz.append( (x,y,z) )", space={'xyz':xyz} )
 
-#--------------------------------------------------------------------------
-# create .pml script for a nice rendering in Pymol
-#--------------------------------------------------------------------------
-pymol_name = pdb_name.replace(".pdb", "_axes.pml")
-pymol_file = open(pymol_name, "w")
-pymol_file.write(
-"""from cgo import *
-axis1=  [ \
-BEGIN, LINES, \
-COLOR, 1.0, 0.0, 0.0, \
-  VERTEX, %8.3f, %8.3f, %8.3f, \
-  VERTEX, %8.3f, %8.3f, %8.3f, \
-END ]
-axis2=  [ \
-BEGIN, LINES, \
-COLOR, 0.0, 1.0, 0.0, \
-  VERTEX, %8.3f, %8.3f, %8.3f, \
-  VERTEX, %8.3f, %8.3f, %8.3f, \ 
-END ]
-axis3=  [ \
-BEGIN, LINES, \
-COLOR, 0.0, 0.0, 1.0, \
-  VERTEX, %8.3f, %8.3f, %8.3f, \
-  VERTEX, %8.3f, %8.3f, %8.3f, \ 
-END ]
-cmd.load_cgo(axis1, 'axis1')
-cmd.load_cgo(axis2, 'axis2')
-cmd.load_cgo(axis3, 'axis3')
-cmd.set('cgo_line_width', 4)
-""" %( \
-center[0], center[1], center[2], point1[0], point1[1], point1[2], \
-center[0], center[1], center[2], point2[0], point2[1], point2[2], \
-center[0], center[1], center[2], point3[0], point3[1], point3[2]))
-pymol_file.close()
+    #create coordinates array
+    coord = numpy.array(xyz, float)
 
-#--------------------------------------------------------------------------
-# create .pml script for nice rendering in Pymol
-# output usage
-#--------------------------------------------------------------------------
-print "The first principal axis is in red"
-print "coordinates: ", axis1
-print "eigen value: ", eval1
-print
-print "The second principal axis is in green"
-print "coordinates:", axis2
-print "eigen value:", eval2
-print
-print "The third principal axis is in blue"
-print "coordinates:", axis3
-print "eigen value:", eval3
-print
-print "You can view principal axes with PyMOL:"
-print "pymol %s %s" %(pymol_name, pdb_name)
+    axis1,axis2,axis3,center = computeprincipalaxes(coord)
+
+    if hlength < 0:
+        hlength = radius * 3
+    if hradius < 0:
+        hradius = hlength * .6
+
+    start1 = -scale_factor * axis1 + center
+    end1 = scale_factor * axis1 + center
+    mid1 = -axis1/numpy.linalg.norm(axis1)*hlength + end1
+
+    start2 = -scale_factor * axis2 + center
+    end2 = scale_factor * axis2 + center
+    mid2 = -axis2/numpy.linalg.norm(axis2)*hlength + end2
+
+    start3 = -scale_factor * axis3 + center
+    end3 = scale_factor * axis3 + center
+    mid3 = -axis3/numpy.linalg.norm(axis3)*hlength + end3
+
+    axis1 =  [
+            CYLINDER, start1[0],start1[1],start1[2],
+            mid1[0],mid1[1],mid1[2],
+            radius,
+            1.0,0.0,0.0,
+            1.0,0.0,0.0,
+            CONE, mid1[0],mid1[1],mid1[2],
+            end1[0],end1[1],end1[2],
+            hradius, 0.0,
+            1.0,0.0,0.0,
+            1.0,0.0,0.0,
+            1.0,0.0
+            ]
+    axis2 =  [
+            CYLINDER, start2[0],start2[1],start2[2],
+            mid2[0],mid2[1],mid2[2],
+            radius,
+            0.0,1.0,0.0,
+            0.0,1.0,0.0,
+            CONE, mid2[0],mid2[1],mid2[2],
+            end2[0],end2[1],end2[2],
+            hradius, 0.0,
+            0.0,1.0,0.0,
+            0.0,1.0,0.0,
+            1.0,0.0
+            ]
+    axis3 =  [
+            CYLINDER, start3[0],start3[1],start3[2],
+            mid3[0],mid3[1],mid3[2],
+            radius,
+            0.0,0.0,1.0,
+            0.0,0.0,1.0,
+            CONE, mid3[0],mid3[1],mid3[2],
+            end3[0],end3[1],end3[2],
+            hradius, 0.0,
+            0.0,0.0,1.0,
+            0.0,0.0,1.0,
+            1.0,0.0
+            ]
+    cmd.load_cgo(axis1+axis2+axis3, name)
+
+cmd.extend("principalaxes",principalaxes)
+cmd.auto_arg[0]["principalaxes"] = [cmd.object_sc,"selection",", "]
 
 
