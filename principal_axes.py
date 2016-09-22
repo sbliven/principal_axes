@@ -62,13 +62,41 @@ def computeprincipalaxes(coord):
     range1 = numpy.max(numpy.abs(proj1))
     proj2 = numpy.dot(coord,axis2)
     range2 = numpy.max(numpy.abs(proj2))
-    proj3 = numpy.dot(coord,axis2)
+    proj3 = numpy.dot(coord,axis3)
     range3 = numpy.max(numpy.abs(proj3))
     return axis1*range1,axis2*range2,axis3*range3,center
 
-def principalaxes(selection,name="axes",scale_factor=1,state=1,radius=.5,hlength=-1,hradius=-1):
+def principalaxes(selection, name="axes", scale_factor=1, state=1, radius=.5, symmetric=1,  hlength=-1, hradius=-1):
     """Display the principal axes of the selection as arrows
+
+    ARGUMENTS
+
+        selection = Atom selection to compute the axes of
+
+        name = object for resulting axes
+
+        scale_factor = Amount to scale the axes relative to the bounds of the
+                       input atoms. If negative, rather than a scale factor it
+                       is treated as a fixed length for all axes.
+
+        state = state to use for the selection
+
+        radius = radius of the axes
+
+        symmetric = If non-zero, draws axes in both directions through the centroid
+
+        hlength = length of the arrow. If negative, computed relative to the
+                  radius
+
+        hradius = radius of the arrow. If negative, computed to maintain a nice
+                  aspect ration with hlength
     """
+
+    hlength = float(hlength)
+    hradius = float(hradius)
+    scale_factor = float(scale_factor)
+    radius = float(radius)
+    symmetric = int(symmetric)
 
     xyz = []
     cmd.iterate_state(state,selection,"xyz.append( (x,y,z) )", space={'xyz':xyz} )
@@ -78,10 +106,19 @@ def principalaxes(selection,name="axes",scale_factor=1,state=1,radius=.5,hlength
 
     axis1,axis2,axis3,center = computeprincipalaxes(coord)
 
+
     if hlength < 0:
         hlength = radius * 3
     if hradius < 0:
         hradius = hlength * .6
+
+    # Negative scale factors indicate a fixed axis length
+    if scale_factor < 0:
+        scale_factor = -scale_factor
+        #normalize axes
+        axis1 = axis1 / numpy.linalg.norm(axis1)
+        axis2 = axis2 / numpy.linalg.norm(axis2)
+        axis3 = axis3 / numpy.linalg.norm(axis3)
 
     start1 = -scale_factor * axis1 + center
     end1 = scale_factor * axis1 + center
@@ -94,6 +131,11 @@ def principalaxes(selection,name="axes",scale_factor=1,state=1,radius=.5,hlength
     start3 = -scale_factor * axis3 + center
     end3 = scale_factor * axis3 + center
     mid3 = -axis3/numpy.linalg.norm(axis3)*hlength + end3
+
+    if not symmetric:
+        start1 = center
+        start2 = center
+        start3 = center
 
     axis1 =  [
             CYLINDER, start1[0],start1[1],start1[2],
