@@ -12,7 +12,7 @@ See `help principalellipsoid` for details about the supported options.
 
 ## Example
 
-with the cryo-EM structure of chicken gizzard smooth muscle alpha-actinin ([1SJJ](http://www.rcsb.org/pdb/explore.do?structureId=1SJJ):
+with the cryo-EM structure of chicken gizzard smooth muscle alpha-actinin ([1SJJ](http://www.rcsb.org/pdb/explore.do?structureId=1SJJ)):
 
 
 ```
