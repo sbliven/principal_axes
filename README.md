@@ -1,48 +1,44 @@
 Principal axes
 ==============
 
-This program reads a .pdb file, computes principal axes and produces a .pml PyMoL script to view axes.
+This script adds pymol commands for calculating and viewing the principal moments of inertia of a structure.
 
-Note that only C-alpha atoms are read and that the .pdb file must only contain a single *coherent* protein structure.
+The main command is `principalellipsoid`, provided by the file `principal_axes.py`. This draws the principal moments as three orthogonal axes.
+
+The script is compatible with `ellipsoid.py`, which adds the ability to draw ellipsoids to PyMOL. The ellipsoid script should be loaded before principal_axes, and adds the `principalellipsoid` command to approximate the structure as an ellipsoid with radii given by the principal moments of inertia.
+
+See `help principalellipsoid` for details about the supported options.
 
 
 ## Example
 
-with the cryo-EM structure of chicken gizzard smooth muscle alpha-actinin ([1SJJ](http://www.rcsb.org/pdb/explore.do?structureId=1SJJ) from the [Protein Data Bank](http://www.rcsb.org/pdb/home/home.do)):
+with the cryo-EM structure of chicken gizzard smooth muscle alpha-actinin ([1SJJ](http://www.rcsb.org/pdb/explore.do?structureId=1SJJ)):
 
-```text
-./principal_axes.py  1SJJ.pdb
+
 ```
-
-```text
-950 CA atomes found if 1SJJ.pdb
-Coordinates of the geometric center:
-[-107.35616421  -44.75738526    8.11289053]
-(Unordered) eigen values:
-[ 4854301.51173111   111627.33781935    52235.74662753]
-(Unordered) eigen vectors:
-[[-0.85667497 -0.50720869  0.09406029]
- [-0.51289152  0.81795036 -0.26057532]
- [-0.05522942  0.27147108  0.96086064]]
-Inertia axis are now ordered !
-The first principal axis is in red
-coordinates:  [-0.85667497 -0.51289152 -0.05522942]
-eigen value:  4854301.51173
-
-The second principal axis is in green
-coordinates: [-0.50720869  0.81795036  0.27147108]
-eigen value: 111627.337819
-
-The third principal axis is in blue
-coordinates: [ 0.09406029 -0.26057532  0.96086064]
-eigen value: 52235.7466275
-
-You can view principal axes with Pymol:
-pymol 1SJJ_axes.pml 1SJJ.pdb
+# ellipsoid is optional, but should be loaded first
+run ellipsoid.py
+run principal_axes.py
+# load a structure
+fetch 1SJJ
+# display principal axes
+principalaxes 1SJJ
 ```
 
 ![1SJJ](img/1SJJ.png "1SJJ")
 
+```
+# Display ellipsoid
+principalellipsoid 1SJJ
+set cgo_transparency, .3, ellipsoid
+```
+
+![1SJJ ellipsoid](img/1SJJ_ellipsoid.png "1SJJ ellipsoid")
+
 ## History
 
 The first version of this script had been posted in the Biostar forum as an answer to [Question: Protein 3D structure principal axes](http://www.biostars.org/p/7393/)
+
+This was adapted into a python script to generate .pml files by [@pierrepo](https://github.com/pierrepo/principal_axes).
+
+The code was then modified to allow use directly from pymol by [@sbliven](https://github.com/sbliven/principal_axes)
