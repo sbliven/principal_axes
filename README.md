@@ -30,6 +30,7 @@ principalaxes 1SJJ
 ```
 # Display ellipsoid
 principalellipsoid 1SJJ
+set cgo_transparency, .3, ellipsoid
 ```
 
 ![1SJJ ellipsoid](img/1SJJ_ellipsoid.png "1SJJ ellipsoid")
