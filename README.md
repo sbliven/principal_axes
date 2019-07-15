@@ -10,7 +10,8 @@ The script is compatible with `ellipsoid.py`, which adds the ability to draw ell
 See `help principalellipsoid` for details about the supported options.
 
 
-## Example
+Example
+-------
 
 with the cryo-EM structure of chicken gizzard smooth muscle alpha-actinin ([1SJJ](http://www.rcsb.org/pdb/explore.do?structureId=1SJJ)):
 
@@ -35,7 +36,9 @@ set cgo_transparency, .3, ellipsoid
 
 ![1SJJ ellipsoid](img/1SJJ_ellipsoid.png "1SJJ ellipsoid")
 
-## History
+
+History
+-------
 
 The first version of this script had been posted in the Biostar forum as an answer to [Question: Protein 3D structure principal axes](http://www.biostars.org/p/7393/)
 
